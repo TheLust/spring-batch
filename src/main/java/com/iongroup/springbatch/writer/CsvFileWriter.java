@@ -13,22 +13,21 @@ import java.io.IOException;
 public class CsvFileWriter implements ItemWriter<Customer> {
 
     @Override
-    public void write(Chunk<? extends Customer> items) throws Exception {
+    public void write(Chunk<? extends Customer> items) {
         String csvFilePath = Constants.COMPLETED + "completed_" + Constants.getParsedFileName();
         for (Customer customer : items) {
             try (FileWriter writer = new FileWriter(csvFilePath, true)) {
-                StringBuilder csvLine = new StringBuilder();
 
                 // Append customer fields
-                csvLine.append(customer.getId()).append(",")
-                        .append(customer.getFirstName()).append(",")
-                        .append(customer.getLastName()).append(",")
-                        .append(customer.getEmail()).append(",")
-                        .append(customer.getGender()).append(",")
-                        .append(customer.getContactNo()).append(",")
-                        .append(customer.getCountry()).append(",")
-                        .append(customer.getDob()).append(",");
-                writer.append(csvLine.toString());
+                String csvLine = customer.getId() + "," +
+                        customer.getFirstName() + "," +
+                        customer.getLastName() + "," +
+                        customer.getEmail() + "," +
+                        customer.getGender() + "," +
+                        customer.getContactNo() + "," +
+                        customer.getCountry() + "," +
+                        customer.getDob() + ",";
+                writer.append(csvLine);
                 writer.append("\n");
             } catch (IOException ignored) {}
         }

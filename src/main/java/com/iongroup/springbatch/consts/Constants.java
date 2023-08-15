@@ -1,7 +1,5 @@
 package com.iongroup.springbatch.consts;
 
-import org.springframework.beans.factory.annotation.Value;
-
 import java.time.LocalDate;
 
 public class Constants {

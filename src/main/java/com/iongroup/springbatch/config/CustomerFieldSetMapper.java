@@ -2,13 +2,10 @@ package com.iongroup.springbatch.config;
 
 import com.iongroup.springbatch.model.Customer;
 import com.iongroup.springbatch.model.Gender;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.batch.item.file.mapping.BeanWrapperFieldSetMapper;
 import org.springframework.batch.item.file.transform.FieldSet;
 import org.springframework.validation.BindException;
-import org.springframework.validation.DataBinder;
 
-import java.beans.PropertyEditorSupport;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 

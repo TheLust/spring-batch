@@ -2,23 +2,30 @@ package com.iongroup.springbatch.config;
 
 import com.iongroup.springbatch.consts.Constants;
 import com.iongroup.springbatch.model.Customer;
+import com.iongroup.springbatch.model.Employee;
+import com.iongroup.springbatch.model.MergedData;
 import com.iongroup.springbatch.repository.CustomerRepository;
 import com.iongroup.springbatch.writer.CsvFileWriter;
 import jakarta.persistence.EntityManagerFactory;
-import lombok.AllArgsConstructor;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
-import org.springframework.batch.core.StepContribution;
 import org.springframework.batch.core.job.builder.JobBuilder;
+import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobRepository;
-import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.core.step.tasklet.Tasklet;
+import org.springframework.batch.item.ItemProcessor;
+import org.springframework.batch.item.ItemReader;
+import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.data.RepositoryItemWriter;
 import org.springframework.batch.item.database.JpaPagingItemReader;
 import org.springframework.batch.item.file.FlatFileItemReader;
+import org.springframework.batch.item.file.FlatFileItemWriter;
 import org.springframework.batch.item.file.LineMapper;
+import org.springframework.batch.item.file.builder.FlatFileItemWriterBuilder;
 import org.springframework.batch.item.file.mapping.DefaultLineMapper;
+import org.springframework.batch.item.file.transform.BeanWrapperFieldExtractor;
+import org.springframework.batch.item.file.transform.DelimitedLineAggregator;
 import org.springframework.batch.item.file.transform.DelimitedLineTokenizer;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,17 +42,20 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 @Configuration
-@AllArgsConstructor
 public class SpringBatchConfig {
 
-    @Autowired
-    private CustomerRepository customerRepository;
+    private final CustomerRepository customerRepository;
+
+    private final CsvFileWriter csvFileWriter;
+
+    private final EntityManagerFactory entityManagerFactory;
 
     @Autowired
-    private CsvFileWriter csvFileWriter;
-
-    @Autowired
-    private EntityManagerFactory entityManagerFactory;
+    public SpringBatchConfig(CustomerRepository customerRepository, CsvFileWriter csvFileWriter, EntityManagerFactory entityManagerFactory) {
+        this.customerRepository = customerRepository;
+        this.csvFileWriter = csvFileWriter;
+        this.entityManagerFactory = entityManagerFactory;
+    }
 
     @Bean
     public FlatFileItemReader<Customer> reader() {
@@ -99,7 +109,7 @@ public class SpringBatchConfig {
     }
 
     @Bean
-    public Job runJob(JobRepository jobRepository,PlatformTransactionManager transactionManager) {
+    public Job runJob(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
         return new JobBuilder("importCustomers",jobRepository)
                 .flow(step1(jobRepository,transactionManager))
                 .next(saveToCsvStep(jobRepository, transactionManager))
@@ -133,12 +143,9 @@ public class SpringBatchConfig {
 
     @Bean
     public Tasklet fileMoveTasklet() {
-        return new Tasklet() {
-            @Override
-            public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
-                moveFile();
-                return RepeatStatus.FINISHED;
-            }
+        return (contribution, chunkContext) -> {
+            moveFile();
+            return RepeatStatus.FINISHED;
         };
     }
 
@@ -159,4 +166,76 @@ public class SpringBatchConfig {
         return reader;
     }
 
+    //Task 5
+
+    @Bean
+    public JpaPagingItemReader<Employee> employeeReader(EntityManagerFactory entityManagerFactory) {
+        JpaPagingItemReader<Employee> reader = new JpaPagingItemReader<>();
+        reader.setEntityManagerFactory(entityManagerFactory);
+        reader.setQueryString("SELECT e FROM Employee e");
+        // Set other properties like pageSize, etc.
+        return reader;
+    }
+
+    @Bean
+    public ItemProcessor<Employee, MergedData> employeeProcessor() {
+        return employee -> new MergedData(
+                employee.getId(),
+                employee.getFirstName(),
+                employee.getLastName(),
+                employee.getJob(),
+                employee.getDepartment().getName()
+        );
+    }
+
+
+    @Bean
+    public FlatFileItemWriter<MergedData> csvWriter() {
+        return new FlatFileItemWriterBuilder<MergedData>()
+                .name("mergedDataCsvWriter")
+                .resource(new FileSystemResource(Constants.PROCESSED + "output.csv"))
+                .delimited()
+                .names("id", "firstName", "lastName", "job", "department")
+                .lineAggregator(new DelimitedLineAggregator<>() {
+                    {
+                        setDelimiter(",");
+                        setFieldExtractor(new BeanWrapperFieldExtractor<>() {
+                            {
+                                setNames(new String[]{"id", "firstName", "lastName", "job", "department"});
+                            }
+                        });
+                    }
+                })
+                .build();
+    }
+
+
+    @Bean
+    public Step writeFromTwoTables(ItemReader<Employee> employeeReader,
+                                   ItemProcessor<Employee, MergedData> employeeProcessor,
+                                   ItemWriter<MergedData> writer,
+                                   JobRepository jobRepository,
+                                   PlatformTransactionManager transactionManager) {
+        return new StepBuilder("writeFromTwoTables", jobRepository)
+                .<Employee, MergedData>chunk(10, transactionManager)
+                .reader(employeeReader)
+                .processor(employeeProcessor)
+                .writer(writer)
+                .build();
+    }
+
+    @Bean
+    public Job task5(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
+        return new JobBuilder("task5", jobRepository)
+                .incrementer(new RunIdIncrementer())
+                .flow(writeFromTwoTables(
+                        employeeReader(entityManagerFactory),
+                        employeeProcessor(),
+                        csvWriter(),
+                        jobRepository,
+                        transactionManager)
+                )
+                .end()
+                .build();
+    }
 }
