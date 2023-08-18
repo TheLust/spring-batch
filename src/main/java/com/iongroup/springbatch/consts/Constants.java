@@ -3,10 +3,11 @@ package com.iongroup.springbatch.consts;
 import java.time.LocalDate;
 
 public class Constants {
-    public static final String UNPROCESSED = "src/main/resources/unprocessed/";
-    public static final String PROCESSED = "src/main/resources/processed/";
-    public static final String REJECTED = "src/main/resources/rejected/";
-    public static final String COMPLETED = "src/main/resources/completed/";
+    private static final String RESOURCES = "src/main/resources/";
+    public static final String UNPROCESSED = RESOURCES + "unprocessed/";
+    public static final String PROCESSED = RESOURCES + "processed/";
+    public static final String REJECTED = RESOURCES+  "rejected/";
+    public static final String COMPLETED = RESOURCES + "completed/";
     public static final String FILE = "customers.csv";
 
     public static String getParsedFileName() {

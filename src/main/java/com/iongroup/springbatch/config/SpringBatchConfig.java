@@ -100,7 +100,7 @@ public class SpringBatchConfig {
     @Bean
     public Step step1(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
         return new StepBuilder("csv-step",jobRepository).
-                <Customer, Customer>chunk(10,transactionManager)
+                <Customer, Customer>chunk(100,transactionManager)
                 .reader(reader())
                 .processor(processor())
                 .writer(writer())
@@ -187,7 +187,6 @@ public class SpringBatchConfig {
                 employee.getDepartment().getName()
         );
     }
-
 
     @Bean
     public FlatFileItemWriter<MergedData> csvWriter() {
